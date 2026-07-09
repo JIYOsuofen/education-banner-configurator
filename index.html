@@ -189,6 +189,59 @@
       opacity: 1;
     }
 
+    .gallery-entry {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: #233147;
+      font-size: 13px;
+      font-weight: 900;
+      text-align: left;
+    }
+
+    .gallery-entry::after {
+      content: "›";
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .gallery-entry.active {
+      border-color: var(--brand);
+      color: var(--brand);
+      box-shadow: inset 0 0 0 1px var(--brand);
+    }
+
+    .gallery-entry.active::after {
+      content: "⌃";
+      font-size: 15px;
+    }
+
+    .gallery-library-title {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 2px;
+      color: #334056;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .gallery-library-title span:last-child {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     .gallery-meta strong {
       display: block;
       font-size: 13px;
@@ -834,7 +887,7 @@
           <div class="preview-panel page-preview">
             <div class="preview-panel-title">
               <span>页面预览</span>
-              <button class="secondary-btn" id="exportPageBtn">导出页面</button>
+              <button class="primary-btn" id="exportPageBtn">导出页面</button>
             </div>
             <div class="canvas-wrap" id="pagePreviewWrap">
               <canvas class="page-canvas" id="pagePreviewCanvas"></canvas>
@@ -906,6 +959,7 @@
       aiGeneratedImage: null,
       aiHistory: [],
       galleryOffset: 0,
+      galleryLibraryOpen: false,
       aiSeedNonce: 0,
       isGenerating: false,
       aiGenerationId: 0
@@ -1120,12 +1174,31 @@
         return;
       }
       const items = recommendedGallery();
-      el.galleryGrid.innerHTML = items.map((item, index) => `
+      const recommendedHtml = items.map((item, index) => `
         <button class="gallery-card ${state.selectedGallery === item.name ? 'active' : ''}" data-gallery="${item.name}">
           <img class="thumb" src="${item.src}" alt="">
           <span class="gallery-meta"><strong>${item.subjectKeywords.slice(0, 3).join('、')}</strong><span>匹配度 ${item.score || (4 - index)}</span></span>
         </button>
       `).join('');
+      const libraryHtml = state.galleryLibraryOpen ? `
+        <div class="gallery-library-title"><span>全部图库</span><span>${gallery.length} 张</span></div>
+        ${[...gallery]
+          .map(item => ({ ...item, score: scoreGallery(item) }))
+          .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'zh-CN'))
+          .map(item => `
+          <button class="gallery-card ${state.selectedGallery === item.name ? 'active' : ''}" data-gallery="${item.name}">
+            <img class="thumb" src="${item.src}" alt="">
+            <span class="gallery-meta"><strong>${item.subjectKeywords.slice(0, 3).join('、')}</strong><span>匹配度 ${item.score}</span></span>
+          </button>
+        `).join('')}
+      ` : '';
+      el.galleryGrid.innerHTML = `
+        ${recommendedHtml}
+        <button class="gallery-entry ${state.galleryLibraryOpen ? 'active' : ''}" type="button" data-gallery-library>
+          ${state.galleryLibraryOpen ? '收起图库' : '图库自选'}
+        </button>
+        ${libraryHtml}
+      `;
     }
 
     function validateText() {
@@ -1728,6 +1801,12 @@
           ...(current ? [current] : []),
           ...state.aiHistory.filter((_, itemIndex) => itemIndex !== index && state.aiHistory[itemIndex] !== current)
         ].slice(0, 6);
+        syncControls();
+        return;
+      }
+      const libraryToggle = event.target.closest('[data-gallery-library]');
+      if (libraryToggle) {
+        state.galleryLibraryOpen = !state.galleryLibraryOpen;
         syncControls();
         return;
       }
